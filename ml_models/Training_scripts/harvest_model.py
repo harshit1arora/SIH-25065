@@ -24,7 +24,7 @@ def train_direct_harvesting_model():
     # --- 2. Preprocessing ---
     # Define features (X) and the direct target (y) as per the specified inputs
     features = [
-        'roof_area',
+        'open_space',
         'roof_type',
         'runoff_coefficient',
         'annual_rainfall'

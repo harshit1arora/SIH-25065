@@ -1,4 +1,4 @@
-roof_area,roof_type,roof_age,runoff_coefficient,location,annual_rainfall,annual_harvestable_water
+open_space,roof_type,roof_age,runoff_coefficient,location,annual_rainfall,annual_harvestable_water
 573,Asbestos Sheet,5,0.769,Jaisalmer,210,88424
 574,Asbestos Sheet,37,0.7543,Kolkata,1800,724833
 122,Lime-Finished Roofs,37,0.6563,Anantapur,560,41656

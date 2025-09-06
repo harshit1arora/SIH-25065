@@ -85,7 +85,7 @@ class MLModelService:
             print(f"Structure prediction error: {e}")
             return self._fallback_structure_recommendation(roof_area, open_space, soil_type, water_depth)
     
-    def predict_water_harvest(self, roof_area: float, runoff_coeff: float, 
+    def predict_water_harvest(self, open_space: float, runoff_coeff: float, 
                              annual_rainfall: float, roof_type: str):
         """Predict harvestable water"""
         try:
@@ -93,15 +93,15 @@ class MLModelService:
                 # Use roof_type as additional feature (encoded)
                 roof_type_encoded = self.label_encoders['roof_type'].transform([roof_type])[0]
                 
-                features = np.array([[roof_area, runoff_coeff, annual_rainfall, roof_type_encoded]])
+                features = np.array([[open_space, runoff_coeff, annual_rainfall, roof_type_encoded]])
                 harvest = self.harvest_model.predict(features)[0]
                 return max(0, harvest)
             else:
-                return self._fallback_water_harvest(roof_area, runoff_coeff, annual_rainfall)
+                return self._fallback_water_harvest(open_space, runoff_coeff, annual_rainfall)
                 
         except Exception as e:
             print(f"Harvest prediction error: {e}")
-            return self._fallback_water_harvest(roof_area, runoff_coeff, annual_rainfall)
+            return self._fallback_water_harvest(open_space, runoff_coeff, annual_rainfall)
     
     def predict_cost_benefit(self, structure_type: str, roof_area: float, region: str = "urban"):
         """Predict costs and payback period"""

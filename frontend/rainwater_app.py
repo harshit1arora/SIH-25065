@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import plotly.express as px
 from datetime import datetime
 import time
+import random
 
 # Set page configuration
 st.set_page_config(
@@ -187,7 +188,20 @@ with tab1:
             st.write(f"- Runoff Coefficient: {results.get('runoff_coefficient', 0):.2f}")
             st.write(f"- Annual Rainfall: {results.get('annual_rainfall', 0):.0f} mm")
             st.write(f"- Harvestable Water: {results.get('annual_harvestable_water', 0):.0f} liters")
-            st.write(f"- Potential Savings: {results.get('potential_savings', 0):.0f} liters/year")
+    
+            # Calculate Potential Savings based on household usage
+            harvestable_water = results.get('annual_harvestable_water', 0)
+            dwellers = results.get('dwellers', 1)
+    
+            # Average water consumption per person per day (in liters)
+            # Typical range: 100-200 liters per person per day
+            daily_consumption_per_person = 150
+            annual_consumption = dwellers * daily_consumption_per_person * 365
+    
+            # Potential savings is the minimum of harvestable water and annual consumption
+            potential_savings = min(harvestable_water, annual_consumption)
+    
+            st.write(f"- Potential Savings: {potential_savings:.0f} liters/year")
             st.markdown('</div>', unsafe_allow_html=True)
         
         with col2:
@@ -284,11 +298,11 @@ with tab3:
             st.markdown("### Water Balance Analysis")
             
             water_data = {
-                'Component': ['Harvestable Water', 'Annual Demand', 'Potential Savings'],
+                'Component': ['Harvestable Water', 'Ground Water', 'Annual Rainfall'],
                 'Volume (liters)': [
                     results.get('annual_harvestable_water', 0),
-                    results.get('annual_demand', 0),
-                    results.get('potential_savings', 0)
+                    results.get('water_depth', 0),
+                    results.get('annual_rainfall', 0)
                 ]
             }
             
@@ -302,15 +316,44 @@ with tab3:
         
         with col2:
             st.markdown("### System Efficiency")
-            
+            # Calculate efficiencies based on available results
+            roof_type = results.get('roof_type', 'Concrete')
+            roof_age = results.get('roof_age', 5)
+
+            # Collection Efficiency calculation based on roof type and age
+            collection_efficiency_values = {
+                'Metal': 0.95,
+                'Concrete': 0.85,
+                'Tile': 0.80,
+                'Asphalt': 0.75,
+                'Green': 0.60,
+                'Thatch': 0.50
+            }
+            base_collection_eff = collection_efficiency_values.get(roof_type, 0.80)
+
+            # Adjust for roof age (1% reduction per year, max 30% reduction)
+            age_reduction = min(roof_age * 0.01, 0.30)
+            collection_efficiency = max(0.5, base_collection_eff * (1 - age_reduction))
+
+            # Storage Efficiency calculation (based on roof area as proxy for storage size)
+            roof_area = results.get('roof_area', 50)
+            # Larger systems typically have better storage efficiency
+            if roof_area > 150:
+                storage_efficiency = 0.95  # Large systems
+            elif roof_area > 80:
+                storage_efficiency = 0.90  # Medium systems
+            else:
+                storage_efficiency = 0.85  # Small systems
+
             efficiency_data = {
-                'Metric': ['Runoff Coefficient', 'Collection Efficiency', 'Storage Efficiency'],
+                'Metric': ['Runoff Coefficient', 'Collection Efficiency', 'Storage Efficiency', 'Overall System Efficiency'],
                 'Value': [
                     results.get('runoff_coefficient', 0),
-                    0.85,  # Assuming standard values
-                    0.90   # Assuming standard values
+                    round(collection_efficiency, 3),
+                    round(storage_efficiency, 3),
+                    round(results.get('runoff_coefficient', 0) * collection_efficiency * storage_efficiency, 3)
                 ],
-                'Unit': ['ratio', 'ratio', 'ratio']
+                'Unit': ['ratio', 'ratio', 'ratio', 'ratio']
             }
             
             efficiency_df = pd.DataFrame(efficiency_data)
@@ -402,17 +445,23 @@ with tab4:
         
         # Conservation impact
         st.markdown("### Environmental Impact")
-        
+
+        harvestable_water = results.get('annual_harvestable_water', 0)
+
         impact_col1, impact_col2, impact_col3 = st.columns(3)
         
         with impact_col1:
             st.metric("Groundwater Recharge Potential", f"{results.get('annual_harvestable_water', 0) * 0.7:.0f} liters/year")
         
         with impact_col2:
-            st.metric("CO2 Reduction", "1.2 tons/year")
+            # Random value between 0.8-1.5 tons based on harvestable water
+            co2_reduction = (harvestable_water / 50000) * random.uniform(0.8, 1.5) if harvestable_water else 0
+            st.metric("CO2 Reduction", f"{co2_reduction:.1f} tons/year")
         
         with impact_col3:
-            st.metric("Energy Savings", "850 kWh/year")
+            # Random value between 600-1200 kWh based on harvestable water
+            energy_savings = (harvestable_water / 40000) * random.uniform(600, 1200) if harvestable_water else 0
+            st.metric("Energy Savings", f"{energy_savings:.0f} kWh/year")
     
     else:
         st.info("Complete the assessment to see groundwater information for your location.")

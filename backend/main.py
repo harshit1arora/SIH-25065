@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Depends, HTTPException, status
+from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
@@ -319,8 +319,8 @@ def get_recommendations(request: schemas.RecommendationRequest):
             detail=f"Recommendation generation failed: {str(e)}"
         )
 
-@app.post("/api/aquifer", response_model=schemas.AquiferInfoResponse)
-def get_aquifer_info(request: schemas.AquiferInfoRequest):
+@app.get("/api/aquifer", response_model=schemas.AquiferInfoResponse)
+def get_aquifer_info(aquifer_type: str = Query(..., description="Type of aquifer")):
     """Get aquifer information"""
     try:
         aquifer_info = {
@@ -333,16 +333,26 @@ def get_aquifer_info(request: schemas.AquiferInfoRequest):
                 "description": "Basalt aquifers have fractured rock formations with variable permeability.",
                 "recharge_potential": "Moderate",
                 "suitable_structures": ["Recharge Shaft", "Recharge Trench"]
+            },
+            "": {  # Handle empty aquifer type
+                "description": "Please select an aquifer type.",
+                "recharge_potential": "Unknown",
+                "suitable_structures": []
             }
         }
         
-        info = aquifer_info.get(request.aquifer_type, {
-            "description": "Information not available for this aquifer type.",
+        # Handle case where aquifer_type is None or empty
+        if not aquifer_type:
+            aquifer_type = ""
+        
+        info = aquifer_info.get(aquifer_type, {
+            "description": f"Information not available for '{aquifer_type}' aquifer type.",
             "recharge_potential": "Unknown",
             "suitable_structures": []
         })
         
         return schemas.AquiferInfoResponse(**info)
+        
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
