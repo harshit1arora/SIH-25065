@@ -14,7 +14,7 @@ def train_direct_harvesting_model():
     
     # --- 1. Load Data ---
     try:
-        df = pd.read_csv("Datasets/Harvesting_dataset.csv")
+        df = pd.read_csv("Harvesting_dataset.csv")
         print("Dataset loaded successfully.")
     except FileNotFoundError:
         print("Error: 'Harvesting_dataset.csv' not found.")
@@ -24,13 +24,13 @@ def train_direct_harvesting_model():
     # --- 2. Preprocessing ---
     # Define features (X) and the direct target (y) as per the specified inputs
     features = [
-        'roof_area_sq_m',
+        'roof_area',
         'roof_type',
         'runoff_coefficient',
-        'annual_rainfall_mm'
+        'annual_rainfall'
     ]
     X = df[features]
-    y = df['annual_harvestable_water_liters']
+    y = df['annual_harvestable_water']
 
     # Convert the categorical feature into a numerical format
     X = pd.get_dummies(X, columns=['roof_type'], drop_first=True)
