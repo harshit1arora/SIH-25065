@@ -387,6 +387,24 @@ async def get_ml_predictions(request: schemas.MLPredictionRequest):
             detail=f"ML prediction failed: {str(e)}"
         )
 
+# Replace the simple region detection with a more robust approach:
+def detect_region_type(location: str, latitude: float, longitude: float) -> str:
+    """Detect if a location is urban, semi-urban, or rural"""
+    if not location:
+        return "rural"
+    
+# Check for major cities
+    major_cities = ["delhi", "mumbai", "chennai", "kolkata", "bangalore", "hyderabad", "pune", "ahmedabad", "jaipur", "lucknow", "kanpur", "nagpur"]
+    
+    location_lower = location.lower()
+    if any(city in location_lower for city in major_cities):
+        return "urban"
+    
+    # You could add more sophisticated logic here based on coordinates
+    # For example, using population density data or other indicators
+    
+    return "rural"
+
 # Assessment management endpoints
 @app.post("/assessments/", response_model=schemas.Assessment)
 async def create_assessment(assessment: schemas.AssessmentCreate, db: Session = Depends(get_db)):
@@ -401,13 +419,13 @@ async def create_assessment(assessment: schemas.AssessmentCreate, db: Session = 
             # Still create assessment but without ML results
             return db_assessment
         
-        # In the create_assessment endpoint, add better error handling:
+        # Get additional data from APIs with error handling
         rainfall_data = rainfall_client.get_rainfall_data(
             geocoding_result["latitude"], geocoding_result["longitude"]
         )
         if not rainfall_data or not rainfall_data.get("success"):
-        # Use a default value or skip ML processing
             rainfall_data = {"annual_rainfall": 1000, "success": True}  # Default value
+
         groundwater_data = groundwater_client.get_groundwater_data(
             geocoding_result["latitude"], geocoding_result["longitude"]
         )
@@ -420,46 +438,45 @@ async def create_assessment(assessment: schemas.AssessmentCreate, db: Session = 
         if not soil_data or not soil_data.get("success"):
             soil_data = {"soil_type": "Sandy Loam", "success": True}
         
-        # Replace the simple region detection with a more robust approach:
-        def detect_region_type(location: str, latitude: float, longitude: float) -> str:
-            """Detect if a location is urban, semi-urban, or rural"""
-            if not location:
-                return "rural"
-    
-            # Check for major cities
-            major_cities = ["delhi", "mumbai", "chennai", "kolkata", "bangalore", "hyderabad", "pune", "ahmedabad", "jaipur", "lucknow", "kanpur", "nagpur"]
-    
-            location_lower = location.lower()
-            if any(city in location_lower for city in major_cities):
-                return "urban"
-    
-            # You could add more sophisticated logic here based on coordinates
-            # For example, using population density data or other indicators
-    
-            return "rural"
-
-        # Usage in create_assessment:
-        region_type = detect_region_type(assessment.location, geocoding_result["latitude"], geocoding_result["longitude"])
-        
-        # Make ML predictions
-        runoff_coeff = ml_service.predict_runoff_coefficient(
-            assessment.roof_type, assessment.roof_age, region_type
+        # Detect region type (using the function now defined outside)
+        region_type = detect_region_type(
+            assessment.location, 
+            geocoding_result["latitude"], 
+            geocoding_result["longitude"]
         )
         
-        recommended_structure = ml_service.predict_structure(
-            assessment.roof_area, assessment.open_space,
-            soil_data["soil_type"], groundwater_data["aquifer_type"],
-            groundwater_data["depth_to_water"]
-        )
-        
-        harvestable_water = ml_service.predict_water_harvest(
-            assessment.roof_area, runoff_coeff,
-            rainfall_data["annual_rainfall"]
-        )
-        
-        cost_benefit = ml_service.predict_cost_benefit(
-            recommended_structure, assessment.roof_area, region_type
-        )
+        # Make ML predictions with error handling
+        try:
+            runoff_coeff = ml_service.predict_runoff_coefficient(
+                assessment.roof_type, assessment.roof_age, region_type
+            )
+            
+            recommended_structure = ml_service.predict_structure(
+                assessment.roof_area, assessment.open_space,
+                soil_data["soil_type"], groundwater_data["aquifer_type"],
+                groundwater_data["depth_to_water"]
+            )
+            
+            # FIXED: Added the missing roof_type parameter
+            harvestable_water = ml_service.predict_water_harvest(
+                assessment.roof_area, runoff_coeff,
+                rainfall_data["annual_rainfall"], assessment.roof_type
+            )
+            
+            cost_benefit = ml_service.predict_cost_benefit(
+                recommended_structure, assessment.roof_area, region_type
+            )
+            
+        except Exception as ml_error:
+            print(f"ML prediction failed: {ml_error}")
+            # Fallback to simple calculations if ML fails
+            runoff_coeff = 0.8  # Default value
+            recommended_structure = "Storage_Tank"
+            harvestable_water = assessment.roof_area * rainfall_data["annual_rainfall"] * runoff_coeff
+            cost_benefit = {
+                "installation_cost": assessment.roof_area * 200,
+                "payback_period": 3.0
+            }
         
         # Update assessment with results
         update_data = {
@@ -484,7 +501,7 @@ async def create_assessment(assessment: schemas.AssessmentCreate, db: Session = 
         
     except Exception as e:
         # If ML processing fails, still return the basic assessment
-        print(f"ML processing failed: {e}")
+        print(f"Assessment creation failed: {e}")
         return db_assessment
 
 @app.get("/assessments/", response_model=List[schemas.Assessment])
