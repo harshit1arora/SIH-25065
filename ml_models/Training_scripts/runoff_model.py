@@ -1,7 +1,8 @@
 import pandas as pd
 import numpy as np
-import lightgbm as lgb # type: ignore
+import lightgbm as lgb
 import pickle
+import joblib
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
@@ -9,13 +10,13 @@ from sklearn.metrics import mean_squared_error, r2_score, mean_absolute_error
 def train_runoff_model():
     """
     Loads the synthetic dataset, trains a LightGBM model to predict the
-    runoff coefficient, evaluates it, and saves the trained model to a PKL file.
+    runoff coefficient, evaluates it, and saves the trained model and encoders.
     """
     print("--- Training Model 1: Runoff Coefficient Predictor ---")
     
     # --- 1. Load Data ---
     try:
-        df = pd.read_csv("Datasets/Runoff_coeff_dataset.csv")
+        df = pd.read_csv("Runoff_coeff_dataset.csv")
         print("Dataset loaded successfully.")
     except FileNotFoundError:
         print("Error: 'Runoff_coeff_dataset.csv' not found.")
@@ -27,9 +28,15 @@ def train_runoff_model():
     X = df[['roof_type', 'roof_age', 'region']]
     y = df['runoff_coefficient']
 
-    # Convert categorical features into a numerical format
-    # Using one-hot encoding for better model performance
-    X = pd.get_dummies(X, columns=['roof_type', 'region'], drop_first=True)
+    # Create and fit label encoders for categorical variables
+    label_encoders = {}
+    categorical_columns = ['roof_type', 'region']
+    
+    for column in categorical_columns:
+        le = LabelEncoder()
+        X[column] = le.fit_transform(X[column])
+        label_encoders[column] = le
+        print(f"Label encoder created for {column}")
 
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.25, random_state=50
@@ -41,10 +48,10 @@ def train_runoff_model():
     # Initialize the LightGBM Regressor
     model = lgb.LGBMRegressor(
         random_state=50,
-        n_estimators=1000,        # Increased from 100 to build more trees
-        learning_rate=0.01,      # Reduced from 0.1 for more careful learning
-        num_leaves=31,           # Controls tree complexity
-        max_depth=-1,            # No limit on tree depth
+        n_estimators=1000,
+        learning_rate=0.01,
+        num_leaves=31,
+        max_depth=-1,
         n_jobs=-1)
     
     # Train the model
@@ -54,7 +61,6 @@ def train_runoff_model():
     # --- 4. Model Evaluation ---
     y_pred = model.predict(X_test)
 
-    # FIX: Calculate RMSE manually for compatibility with older scikit-learn versions
     mse = mean_squared_error(y_test, y_pred)
     rmse = np.sqrt(mse)
     mae = mean_absolute_error(y_test, y_pred)
@@ -66,13 +72,28 @@ def train_runoff_model():
     print(f"R-squared (R²): {r2:.4f}")
     print("------------------------")
 
-    # --- 5. Save the Model ---
+    # --- 5. Save the Model and Encoders ---
+    # Save the main model
     model_filename = "runoff_model.pkl"
     with open(model_filename, 'wb') as file:
         pickle.dump(model, file)
     
+    # Save each label encoder
+    for column_name, encoder in label_encoders.items():
+        encoder_filename = f"{column_name}_encoder.pkl"
+        joblib.dump(encoder, encoder_filename)
+        print(f"Saved {encoder_filename}")
+    
     print(f"\nModel successfully saved to '{model_filename}'")
+    print("All encoders saved successfully!")
 
+    # --- 6. Optional: Test the encoders work correctly ---
+    print("\n--- Testing Encoders ---")
+    for column_name, encoder in label_encoders.items():
+        test_values = df[column_name].unique()[:3]  # Test with first 3 unique values
+        encoded_values = encoder.transform(test_values)
+        decoded_values = encoder.inverse_transform(encoded_values)
+        print(f"{column_name}: {list(test_values)} -> {encoded_values} -> {list(decoded_values)}")
 
 if __name__ == "__main__":
     train_runoff_model()
