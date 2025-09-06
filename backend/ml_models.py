@@ -22,26 +22,26 @@ class MLModelService:
         """Load trained ML models"""
         try:
             # Load runoff coefficient model
-            self.runoff_model = joblib.load('models/runoff_model.pkl')
-            self.label_encoders['roof_type'] = joblib.load('models/roof_type_encoder.pkl')
+            self.runoff_model = joblib.load('runoff_model.pkl')
+            self.label_encoders['roof_type'] = joblib.load('roof_type_encoder.pkl')
             
             # Load structure recommendation model
-            self.structure_model = joblib.load('models/structure_model.pkl')
-            self.label_encoders['soil_type'] = joblib.load('models/soil_type_encoder.pkl')
-            self.label_encoders['aquifer_type'] = joblib.load('models/aquifer_type_encoder.pkl')
+            self.structure_model = joblib.load('structure_model.pkl')
+            self.label_encoders['soil_type'] = joblib.load('soil_type_encoder.pkl')
+            self.label_encoders['aquifer_type'] = joblib.load('aquifer_type_encoder.pkl')
             
             # Load water harvest model
-            self.harvest_model = joblib.load('models/harvest_model.pkl')
+            self.harvest_model = joblib.load('harvest_model.pkl')
             
             # Load cost model
-            self.cost_model = joblib.load('models/cost_model.pkl')
-            self.label_encoders['recommended_structure'] = joblib.load('models/structure_encoder.pkl')
+            self.cost_model = joblib.load('cost_model.pkl')
+            self.label_encoders['recommended_structure'] = joblib.load('structure_encoder.pkl')
             
         except FileNotFoundError:
             print("ML models not found. Using rule-based fallback.")
             self.models_loaded = False
     
-    def predict_runoff_coefficient(self, roof_type: str, roof_age: int, region: str = "urban"):
+    def predict_runoff_coefficient(self, roof_type: str, roof_age: int, region: str):
         """Predict runoff coefficient"""
         try:
             if self.runoff_model:
