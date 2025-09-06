@@ -301,8 +301,8 @@ with tab3:
                 'Component': ['Harvestable Water', 'Ground Water', 'Annual Rainfall'],
                 'Volume (liters)': [
                     results.get('annual_harvestable_water', 0),
-                    results.get('water_depth', 0),
-                    results.get('annual_rainfall', 0)
+                    results.get('water_depth', 0) * 1000,
+                    results.get('annual_rainfall', 0) * results.get('open_space', 0)
                 ]
             }
             

@@ -375,7 +375,7 @@ async def get_ml_predictions(request: schemas.MLPredictionRequest):
         )
         
         harvestable_water = ml_service.predict_water_harvest(
-            request.roof_area, runoff_coeff, request.annual_rainfall, request.roof_type
+            request.open_space, runoff_coeff, request.annual_rainfall, request.roof_type
         )
         
         cost_benefit = ml_service.predict_cost_benefit(
@@ -469,7 +469,7 @@ async def create_assessment(assessment: schemas.AssessmentCreate, db: Session = 
             
             # FIXED: Added the missing roof_type parameter
             harvestable_water = ml_service.predict_water_harvest(
-                assessment.roof_area, runoff_coeff,
+                assessment.open_space, runoff_coeff,
                 rainfall_data["annual_rainfall"], assessment.roof_type
             )
             
