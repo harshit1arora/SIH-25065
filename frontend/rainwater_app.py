@@ -110,17 +110,62 @@ with st.sidebar:
         
         st.session_state.user_data['dwellers'] = st.number_input("Number of Dwellers", min_value=1, max_value=50, 
                                                                value=st.session_state.user_data['dwellers'])
+        
         st.session_state.user_data['roof_area'] = st.number_input("Roof Area (sq. meters)", min_value=10, max_value=1000, 
-                                                                value=st.session_state.user_data['roof_area'])
+                                                        value=st.session_state.user_data['roof_area'])
+        
         st.session_state.user_data['open_space'] = st.number_input("Available Open Space (sq. meters)", min_value=0, max_value=1000, 
                                                                  value=st.session_state.user_data['open_space'])
+        
         st.session_state.user_data['roof_type'] = st.selectbox("Roof Type", 
                                                               ['Concrete', 'Tiled', 'Metal', 'Asbestos', 'Thatched'],
                                                               index=0)
+        
         st.session_state.user_data['roof_age'] = st.slider("Roof Age (years)", min_value=0, max_value=50, 
                                                          value=st.session_state.user_data['roof_age'])
         
         submitted = st.form_submit_button("🚀 Calculate Potential", type="primary")
+
+    # Add Google Earth measurement option
+    # Add Google Earth measurement option OUTSIDE the form
+    st.markdown("---")
+    st.markdown("**Not sure about your roof area?**")
+
+    # Always show the button, but handle different states
+    if st.session_state.user_data['location']:
+        # Check if we have results with coordinates
+        if st.session_state.calculation_done and st.session_state.user_data['results']:
+            results = st.session_state.user_data['results']
+            lat = results.get('latitude')
+            lon = results.get('longitude')
+
+            if lat and lon:
+                earth_url = f"https://earth.google.com/web/@{lat},{lon},100a,1000d,35y,0h,0t,0r"
+                # Create a styled link that looks like a button
+                st.markdown(f"""
+                <a href="{earth_url}" target="_blank" style="
+                    display: inline-block;
+                    padding: 0.5rem 1rem;
+                    background-color: #1f77b4;
+                    color: white;
+                    text-decoration: none;
+                    border-radius: 0.5rem;
+                    text-align: center;
+                    font-weight: bold;
+                    margin: 0.5rem 0;
+                ">
+                    🗺️ Measure Roof in Google Earth
+                </a>
+                """, unsafe_allow_html=True)
+                st.info("Click the button above to measure your roof area in Google Earth")
+            else:
+                st.info("Complete the assessment to get coordinates for Google Earth")
+        else:
+            st.info("Click 'Calculate Potential' to get your Google Earth link")
+    else:
+        st.info("Enter your location above to measure your roof")
+
+    st.markdown("---")
 
 # Main content area
 tab1, tab2, tab3, tab4, tab5 = st.tabs(["🏠 Assessment", "💡 Recommendations", "📊 Results", "🌊 Groundwater Info", "ℹ️ About"])
@@ -145,6 +190,7 @@ if submitted:
             st.session_state.user_data['results'] = assessment_response
             st.session_state.calculation_done = True
             st.success("Assessment completed successfully!")
+            st.rerun()
         else:
             st.error("Failed to complete assessment. Please try again.")
 
@@ -159,7 +205,8 @@ with tab1:
         
         with col1:
             st.markdown('<div class="metric-card">', unsafe_allow_html=True)
-            st.metric("Annual Harvestable Water", f"{results.get('annual_harvestable_water', 0):.0f} liters")
+            annual_water = results.get('annual_harvestable_water', 0)
+            st.metric("Annual Harvestable Water", f"{annual_water:.0f} liters" if annual_water is not None else "N/A")
             st.markdown('</div>', unsafe_allow_html=True)
         
         with col2:
@@ -190,11 +237,10 @@ with tab1:
             st.write(f"- Harvestable Water: {results.get('annual_harvestable_water', 0):.0f} liters")
     
             # Calculate Potential Savings based on household usage
-            harvestable_water = results.get('annual_harvestable_water', 0)
+            harvestable_water = results.get('annual_harvestable_water', 0) or 0
             dwellers = results.get('dwellers', 1)
     
             # Average water consumption per person per day (in liters)
-            # Typical range: 100-200 liters per person per day
             daily_consumption_per_person = 150
             annual_consumption = dwellers * daily_consumption_per_person * 365
     
@@ -210,8 +256,30 @@ with tab1:
             st.write(f"- Soil Type: {results.get('soil_type', 'N/A')}")
             st.write(f"- Aquifer Type: {results.get('aquifer_type', 'N/A')}")
             st.write(f"- Water Depth: {results.get('water_depth', 0):.1f} meters")
-            st.write(f"- Location: {results.get('latitude', 0):.4f}, {results.get('longitude', 0):.4f}")
+            
+            # Display coordinates and Google Earth link
+            lat = results.get('latitude')
+            lon = results.get('longitude')
+            
+            if lat and lon:
+                st.write(f"- Location: {lat:.4f}, {lon:.4f}")
+            else:
+                st.write(f"- Location: Coordinates not available")
+            
             st.markdown('</div>', unsafe_allow_html=True)
+        
+        # Add roof area update functionality
+        if lat and lon:
+            st.markdown("---")
+            st.markdown("**Update open space after measurement**")
+            new_roof_area = st.number_input("Enter measured open space (sq. meters):", 
+                                           min_value=10, max_value=1000, 
+                                           value=st.session_state.user_data['open_space'],
+                                           key="update_roof")
+            
+            if st.button("Update Open Space", key="update_btn"):
+                st.session_state.user_data['open_space'] = new_roof_area
+                st.success("Roof area updated! Click 'Calculate Potential' again for updated results.")
         
         # Rainfall visualization
         if 'monthly_breakdown' in results:
