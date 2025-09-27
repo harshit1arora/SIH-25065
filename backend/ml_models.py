@@ -1,8 +1,10 @@
+
 import pandas as pd
 import numpy as np
 from typing import List, Dict, Any
 import joblib
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
+from .config import settings
 
 class MLModelService:
     def __init__(self):
@@ -15,6 +17,9 @@ class MLModelService:
     
     def load_models(self):
         try:
+            # Use the model path from settings
+            model_path = settings.RECOMMENDATION_MODEL_PATH
+            
             # Try to load models (fallback if not found)
             self.runoff_model = joblib.load('runoff_model.pkl')
             self.label_encoders['roof_type'] = joblib.load('roof_type_encoder.pkl')
