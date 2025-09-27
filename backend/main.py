@@ -1,14 +1,18 @@
+# backend/main.py
+
 from fastapi import FastAPI, Depends, HTTPException, status, Query
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.orm import Session
 from typing import List
 import requests
-import crud, models, schemas
-from database import engine, get_db, init_db
-from dependencies import get_db
-from ml_models import ml_service
-from config import settings
-from schemas import MLPredictionResponse, FeedbackSchema
+
+# Relative imports since backend is now a package
+from . import crud, models, schemas
+from .database import engine, get_db, init_db
+from .dependencies import get_db
+from .ml_models import ml_service
+from .config import settings
+from .schemas import MLPredictionResponse, FeedbackSchema
 
 # Create database tables
 init_db()
@@ -27,7 +31,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# External API clients (to be implemented with real APIs)
+# External API clients
 class GeocodingClient:
     def get_coordinates(self, address: str):
         try:
@@ -38,7 +42,7 @@ class GeocodingClient:
                 "limit": 1
             }
             headers = {
-                "User-Agent": "RTRWH-Assessment-App/1.0"  # Required by Nominatim
+                "User-Agent": "RTRWH-Assessment-App/1.0"
             }
             
             response = requests.get(base_url, params=params, headers=headers, timeout=10)
@@ -79,7 +83,7 @@ class RainfallClient:
             daily_rainfall = data.get("daily", {}).get("rain_sum", [])
             annual_rainfall = sum(daily_rainfall) / (len(daily_rainfall) / 365.25) if daily_rainfall else 0
             
-            # Estimate monthly breakdown (simplified)
+            # Estimate monthly breakdown
             monthly_breakdown = self._estimate_monthly_breakdown(daily_rainfall)
             
             return {
@@ -92,24 +96,20 @@ class RainfallClient:
             return {"success": False, "error": str(e)}
     
     def _estimate_monthly_breakdown(self, daily_rainfall):
-        # Simplified estimation - in real implementation, you'd use actual monthly data
-        # This is a placeholder that creates a typical monsoon pattern for India
+        # Simplified estimation - creates a typical monsoon pattern for India
         return [15, 20, 25, 30, 50, 150, 300, 280, 150, 50, 20, 15]
 
 class GroundwaterClient:
     def get_groundwater_data(self, lat: float, lon: float):
         try:
-            # This is a placeholder - CGWB doesn't have a direct public API
-            # You might need to use pre-downloaded data or scrape their reports
-            
-            # For now, return estimated values based on location
+            # Placeholder implementation
             depth_to_water = self._estimate_water_depth(lat, lon)
             aquifer_type = self._estimate_aquifer_type(lat, lon)
             
             return {
                 "depth_to_water": depth_to_water,
                 "aquifer_type": aquifer_type,
-                "water_quality": "Good",  # Default assumption
+                "water_quality": "Good",
                 "success": True
             }
                 
@@ -117,26 +117,21 @@ class GroundwaterClient:
             return {"success": False, "error": str(e)}
     
     def _estimate_water_depth(self, lat: float, lon: float):
-        # Very simplified estimation - in real implementation, use actual data
-        # This is just a placeholder that returns a reasonable estimate
+        # Simplified estimation
         return 10.0 + (abs(lat - 28.6) + abs(lon - 77.2)) * 5
     
     def _estimate_aquifer_type(self, lat: float, lon: float):
         # Simplified estimation based on region
-        # North India: Alluvial, South India: Basalt, etc.
         if lat > 20 and lat < 30 and lon > 70 and lon < 90:  # Northern plains
             return "Alluvial"
         elif lat > 10 and lat < 20 and lon > 70 and lon < 80:  # Southern peninsula
             return "Basalt"
         else:
-            return "Alluvial"  # Default
+            return "Alluvial"
 
 class SoilClient:
     def get_soil_data(self, lat: float, lon: float):
         try:
-            # OpenLandMap provides soil data via WCS services
-            # This is a simplified implementation
-            
             soil_type = self._get_soil_type_from_opendata(lat, lon)
             
             return {
@@ -148,9 +143,6 @@ class SoilClient:
             return {"success": False, "error": str(e)}
     
     def _get_soil_type_from_opendata(self, lat: float, lon: float):
-        # This is a placeholder implementation
-        # In a real application, you would query a soil data service
-        
         # Simplified logic based on coordinates
         if 28.0 < lat < 29.0 and 76.0 < lon < 78.0:  # Delhi region
             return "Sandy Loam"
@@ -159,7 +151,7 @@ class SoilClient:
         elif 12.0 < lat < 13.0 and 77.0 < lon < 79.0:  # Bangalore region
             return "Red Loam"
         else:
-            return "Sandy Loam"  # Default
+            return "Sandy Loam"
 
 geocoding_client = GeocodingClient()
 rainfall_client = RainfallClient()
@@ -169,8 +161,6 @@ soil_client = SoilClient()
 @app.get("/")
 def read_root():
     return {"message": "Rooftop Rainwater Harvesting Assessment API"}
-
-# ... (keep all the imports and class definitions the same) ...
 
 @app.post("/api/geocode", response_model=schemas.GeocodingResponse)
 def geocode_address(request: schemas.GeocodingRequest):
@@ -244,8 +234,6 @@ def get_soil_type(request: schemas.SoilTypeRequest):
             detail=f"Failed to fetch soil type data: {str(e)}"
         )
 
-# ... (keep the rest of the endpoints the same) ...
-
 @app.post("/api/calculate", response_model=schemas.CalculateResponse)
 def calculate_potential(request: schemas.CalculateRequest):
     """Calculate water harvesting potential"""
@@ -279,7 +267,7 @@ def calculate_potential(request: schemas.CalculateRequest):
 def get_recommendations(request: schemas.RecommendationRequest):
     """Get recommendations from ML model"""
     try:
-        # Use the ML service instead of the undefined recommendation_model
+        # Use the ML service
         recommended_structure = ml_service.predict_structure(
             request.roof_area,
             request.open_space,
@@ -288,19 +276,17 @@ def get_recommendations(request: schemas.RecommendationRequest):
             request.water_depth
         )
         
-        # For now, create a simple recommendation item
-        # In a real implementation, you'd have more detailed recommendations
         recommendation_item = schemas.RecommendationItem(
             name=recommended_structure,
             description=f"Recommended {recommended_structure} based on your site conditions",
-            cost=f"₹{25000 + request.roof_area * 100}"  # Example cost calculation
+            cost=f"₹{25000 + request.roof_area * 100}"
         )
         
         # Simple cost-benefit analysis
         water_savings = request.roof_area * request.rainfall * 0.8
-        water_cost = 5  # ₹ per liter (assuming cost of alternative water)
+        water_cost = 5  # ₹ per liter
         annual_savings = water_savings * water_cost / 1000
-        avg_cost = 25000 + request.roof_area * 100  # Average installation cost
+        avg_cost = 25000 + request.roof_area * 100
         payback_period = avg_cost / annual_savings if annual_savings > 0 else 0
         
         cost_benefit_analysis = {
@@ -334,14 +320,13 @@ def get_aquifer_info(aquifer_type: str = Query(..., description="Type of aquifer
                 "recharge_potential": "Moderate",
                 "suitable_structures": ["Recharge Shaft", "Recharge Trench"]
             },
-            "": {  # Handle empty aquifer type
+            "": {
                 "description": "Please select an aquifer type.",
                 "recharge_potential": "Unknown",
                 "suitable_structures": []
             }
         }
         
-        # Handle case where aquifer_type is None or empty
         if not aquifer_type:
             aquifer_type = ""
         
@@ -359,7 +344,6 @@ def get_aquifer_info(aquifer_type: str = Query(..., description="Type of aquifer
             detail=f"Failed to fetch aquifer information: {str(e)}"
         )
 
-# Add a new endpoint to get ML predictions
 @app.post("/api/predict", response_model=schemas.MLPredictionResponse)
 async def get_ml_predictions(request: schemas.MLPredictionRequest):
     """Get ML predictions for given inputs"""
@@ -397,21 +381,16 @@ async def get_ml_predictions(request: schemas.MLPredictionRequest):
             detail=f"ML prediction failed: {str(e)}"
         )
 
-# Replace the simple region detection with a more robust approach:
 def detect_region_type(location: str, latitude: float, longitude: float) -> str:
     """Detect if a location is urban, semi-urban, or rural"""
     if not location:
         return "rural"
     
-# Check for major cities
     major_cities = ["delhi", "mumbai", "chennai", "kolkata", "bangalore", "hyderabad", "pune", "ahmedabad", "jaipur", "lucknow", "kanpur", "nagpur"]
     
     location_lower = location.lower()
     if any(city in location_lower for city in major_cities):
         return "urban"
-    
-    # You could add more sophisticated logic here based on coordinates
-    # For example, using population density data or other indicators
     
     return "rural"
 
@@ -426,7 +405,6 @@ async def create_assessment(assessment: schemas.AssessmentCreate, db: Session = 
         # Get location data
         geocoding_result = geocoding_client.get_coordinates(assessment.location)
         if not geocoding_result["success"]:
-            # Still create assessment but without ML results
             return db_assessment
         
         # Get additional data from APIs with error handling
@@ -434,7 +412,7 @@ async def create_assessment(assessment: schemas.AssessmentCreate, db: Session = 
             geocoding_result["latitude"], geocoding_result["longitude"]
         )
         if not rainfall_data or not rainfall_data.get("success"):
-            rainfall_data = {"annual_rainfall": 1000, "success": True}  # Default value
+            rainfall_data = {"annual_rainfall": 1000, "success": True}
 
         groundwater_data = groundwater_client.get_groundwater_data(
             geocoding_result["latitude"], geocoding_result["longitude"]
@@ -448,7 +426,7 @@ async def create_assessment(assessment: schemas.AssessmentCreate, db: Session = 
         if not soil_data or not soil_data.get("success"):
             soil_data = {"soil_type": "Sandy Loam", "success": True}
         
-        # Detect region type (using the function now defined outside)
+        # Detect region type
         region_type = detect_region_type(
             assessment.location, 
             geocoding_result["latitude"], 
@@ -467,7 +445,6 @@ async def create_assessment(assessment: schemas.AssessmentCreate, db: Session = 
                 groundwater_data["depth_to_water"]
             )
             
-            # FIXED: Added the missing roof_type parameter
             harvestable_water = ml_service.predict_water_harvest(
                 assessment.open_space, runoff_coeff,
                 rainfall_data["annual_rainfall"], assessment.roof_type
@@ -480,7 +457,7 @@ async def create_assessment(assessment: schemas.AssessmentCreate, db: Session = 
         except Exception as ml_error:
             print(f"ML prediction failed: {ml_error}")
             # Fallback to simple calculations if ML fails
-            runoff_coeff = 0.8  # Default value
+            runoff_coeff = 0.8
             recommended_structure = "Storage_Tank"
             harvestable_water = assessment.roof_area * rainfall_data["annual_rainfall"] * runoff_coeff
             cost_benefit = {
@@ -510,7 +487,6 @@ async def create_assessment(assessment: schemas.AssessmentCreate, db: Session = 
         return updated_assessment
         
     except Exception as e:
-        # If ML processing fails, still return the basic assessment
         print(f"Assessment creation failed: {e}")
         return db_assessment
 
@@ -531,7 +507,6 @@ def read_assessment(assessment_id: int, db: Session = Depends(get_db)):
 @app.put("/assessments/{assessment_id}", response_model=schemas.Assessment)
 def update_assessment(assessment_id: int, assessment_update: schemas.AssessmentUpdate, db: Session = Depends(get_db)):
     """Update an assessment with results"""
-    # Convert Pydantic model to dict for update
     update_dict = assessment_update.dict(exclude_unset=True)
     
     db_assessment = crud.update_assessment_results(db, assessment_id=assessment_id, results=update_dict)
