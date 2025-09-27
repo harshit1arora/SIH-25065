@@ -1,7 +1,1 @@
-setuptools==68.2.2
-wheel==0.41.2
-cython
-fastapi==0.103.0
-uvicorn==0.23.2
-pandas==2.0.3
-numpy==1.24.3
+
