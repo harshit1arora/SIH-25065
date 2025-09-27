@@ -1,6 +1,6 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Text, JSON
+from sqlalchemy import Column, Integer, String, Float, DateTime, Text
 from sqlalchemy.sql import func
-from database import Base
+from .database import Base
 
 class UserAssessment(Base):
     __tablename__ = "user_assessments"
@@ -14,7 +14,7 @@ class UserAssessment(Base):
     roof_area = Column(Float)
     open_space = Column(Float)
     roof_type = Column(String(50))
-    roof_age = Column(Integer)  # Added for ML model
+    roof_age = Column(Integer)
     
     # API Data
     soil_type = Column(String(50), nullable=True)
@@ -36,11 +36,3 @@ class UserAssessment(Base):
     # Timestamps
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
-
-    # Removed deprecated fields that are replaced by ML outputs
-    # harvestable_water - replaced by annual_harvestable_water
-    # annual_demand - can be calculated from dwellers
-    # potential_savings - can be calculated
-    # savings_percentage - can be calculated
-    # recommendations - replaced by recommended_structure
-    # cost_benefit_analysis - replaced by installation_cost and payback_period
