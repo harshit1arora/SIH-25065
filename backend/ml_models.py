@@ -3,7 +3,7 @@ import numpy as np
 from typing import List, Dict, Any
 import joblib
 from sklearn.ensemble import RandomForestRegressor, RandomForestClassifier
-import config  # Changed from relative to absolute import
+import config
 
 class MLModelService:
     def __init__(self):
@@ -12,28 +12,45 @@ class MLModelService:
         self.harvest_model = None
         self.cost_model = None
         self.label_encoders = {}
+        self.models_loaded = False
         self.load_models()
     
     def load_models(self):
+        """Load models with better error handling"""
         try:
-            # Use the model path from settings
-            model_path = config.settings.RECOMMENDATION_MODEL_PATH  # Added config. prefix
+            # Try to load models, but continue even if they fail
+            self.runoff_model = self._safe_load_model('runoff_model.pkl')
+            self.label_encoders['roof_type'] = self._safe_load_model('roof_type_encoder.pkl')
+            self.structure_model = self._safe_load_model('structure_model.pkl')
+            self.label_encoders['soil_type'] = self._safe_load_model('soil_type_encoder.pkl')
+            self.label_encoders['aquifer_type'] = self._safe_load_model('aquifer_type_encoder.pkl')
+            self.harvest_model = self._safe_load_model('harvest_model.pkl')
+            self.cost_model = self._safe_load_model('cost_model.pkl')
+            self.label_encoders['recommended_structure'] = self._safe_load_model('structure_encoder.pkl')
             
-            # Try to load models (fallback if not found)
-            self.runoff_model = joblib.load('runoff_model.pkl')
-            self.label_encoders['roof_type'] = joblib.load('roof_type_encoder.pkl')
-            self.structure_model = joblib.load('structure_model.pkl')
-            self.label_encoders['soil_type'] = joblib.load('soil_type_encoder.pkl')
-            self.label_encoders['aquifer_type'] = joblib.load('aquifer_type_encoder.pkl')
-            self.harvest_model = joblib.load('harvest_model.pkl')
-            self.cost_model = joblib.load('cost_model.pkl')
-            self.label_encoders['recommended_structure'] = joblib.load('structure_encoder.pkl')
-        except FileNotFoundError:
-            print("ML models not found. Using rule-based fallback.")
+            # Check if any model loaded successfully
+            if any([self.runoff_model, self.structure_model, self.harvest_model, self.cost_model]):
+                self.models_loaded = True
+                print("Some ML models loaded successfully")
+            else:
+                print("No ML models found. Using rule-based fallback.")
+                
+        except Exception as e:
+            print(f"Error loading ML models: {e}")
+            print("Using rule-based fallback.")
+    
+    def _safe_load_model(self, model_path):
+        """Safely load a model file, return None if it fails"""
+        try:
+            return joblib.load(model_path)
+        except Exception as e:
+            print(f"Could not load {model_path}: {e}")
+            return None
     
     def predict_runoff_coefficient(self, roof_type: str, roof_age: int, region: str):
+        """Predict runoff coefficient with fallback"""
         try:
-            if self.runoff_model:
+            if self.runoff_model and self.label_encoders.get('roof_type'):
                 roof_type_encoded = self.label_encoders['roof_type'].transform([roof_type])[0]
                 features = np.array([[roof_type_encoded, roof_age, 1 if region == "urban" else 0]])
                 runoff_coeff = self.runoff_model.predict(features)[0]
@@ -46,8 +63,12 @@ class MLModelService:
     
     def predict_structure(self, roof_area: float, open_space: float, 
                          soil_type: str, aquifer_type: str, water_depth: float):
+        """Recommend RWH structure with fallback"""
         try:
-            if self.structure_model:
+            if (self.structure_model and 
+                self.label_encoders.get('soil_type') and 
+                self.label_encoders.get('aquifer_type')):
+                
                 soil_encoded = self.label_encoders['soil_type'].transform([soil_type])[0]
                 aquifer_encoded = self.label_encoders['aquifer_type'].transform([aquifer_type])[0]
                 features = np.array([[roof_area, open_space, soil_encoded, aquifer_encoded, water_depth]])
@@ -62,8 +83,9 @@ class MLModelService:
     
     def predict_water_harvest(self, open_space: float, runoff_coeff: float, 
                              annual_rainfall: float, roof_type: str):
+        """Predict harvestable water with fallback"""
         try:
-            if self.harvest_model:
+            if self.harvest_model and self.label_encoders.get('roof_type'):
                 roof_type_encoded = self.label_encoders['roof_type'].transform([roof_type])[0]
                 features = np.array([[open_space, runoff_coeff, annual_rainfall, roof_type_encoded]])
                 harvest = self.harvest_model.predict(features)[0]
@@ -75,8 +97,9 @@ class MLModelService:
             return self._fallback_water_harvest(open_space, runoff_coeff, annual_rainfall)
     
     def predict_cost_benefit(self, structure_type: str, roof_area: float, region: str = "urban"):
+        """Predict costs and payback period with fallback"""
         try:
-            if self.cost_model:
+            if self.cost_model and self.label_encoders.get('recommended_structure'):
                 structure_encoded = self.label_encoders['recommended_structure'].transform([structure_type])[0]
                 region_encoded = 1 if region == "urban" else 0
                 features = np.array([[structure_encoded, roof_area, region_encoded]])
@@ -91,6 +114,7 @@ class MLModelService:
             print(f"Cost prediction error: {e}")
             return self._fallback_cost_benefit(structure_type, roof_area, region)
     
+    # Fallback methods (rule-based) - KEEP THESE THE SAME
     def _fallback_runoff_coefficient(self, roof_type: str, roof_age: int):
         coefficients = {
             'Concrete': 0.8, 'Tiled': 0.7, 'Metal': 0.9, 
@@ -128,4 +152,5 @@ class MLModelService:
             'payback_period': payback_period
         }
 
+# Initialize the ML service - this will now work even without model files
 ml_service = MLModelService()
