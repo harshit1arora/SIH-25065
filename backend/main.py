@@ -6,13 +6,13 @@ from sqlalchemy.orm import Session
 from typing import List
 import requests
 
-# Relative imports since backend is now a package
-from . import crud, models, schemas
-from .database import engine, get_db, init_db
-from .dependencies import get_db
-from .ml_models import ml_service
-from .config import settings
-from .schemas import MLPredictionResponse, FeedbackSchema
+# FIXED IMPORTS - ABSOLUTE IMPORTS (NO DOTS)
+import crud
+import models
+import schemas
+from database import engine, get_db, init_db
+from ml_models import ml_service
+from config import settings
 
 # Create database tables
 init_db()
@@ -161,6 +161,10 @@ soil_client = SoilClient()
 @app.get("/")
 def read_root():
     return {"message": "Rooftop Rainwater Harvesting Assessment API"}
+
+@app.get("/health")
+async def health_check():
+    return {"status": "healthy", "service": settings.PROJECT_NAME}
 
 @app.post("/api/geocode", response_model=schemas.GeocodingResponse)
 def geocode_address(request: schemas.GeocodingRequest):
