@@ -1,6 +1,7 @@
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc
-from . import models, schemas
+import models
+import schemas
 from typing import List, Optional, Dict, Any
 
 def create_assessment(db: Session, assessment: schemas.AssessmentCreate):
