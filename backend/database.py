@@ -1,7 +1,7 @@
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
-from .config import settings
+from config import settings
 
 # Use DATABASE_URL from settings
 engine = create_engine(
@@ -20,5 +20,5 @@ def get_db():
         db.close()
 
 def init_db():
-    from .models import Base
-    Base.metadata.create_all(bind=engine)
+    import models
+    models.Base.metadata.create_all(bind=engine)
